@@ -1,0 +1,38 @@
+﻿<Window x:Class="ArduinoGUI_Interface.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ArduinoGUI_Interface"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300*"/>
+            <ColumnDefinition Width="500*"/>
+        </Grid.ColumnDefinitions>
+        <Label x:Name="Title" Content="Explorover Conrol Monitor Expert" HorizontalAlignment="Center" Margin="0,18,0,0" VerticalAlignment="Top" FontWeight="Bold" FontSize="16"/>
+        <Label Width="266" HorizontalAlignment="Center" Margin="0,46,0,347">
+            <TextBlock TextWrapping="WrapWithOverflow" Text="This program lets the user retrieve the data from the ExploRover." Width="256"/>
+        </Label>
+
+        <Label Content="Connection options:" HorizontalAlignment="Left" Margin="16,92,0,0" VerticalAlignment="Top" FontWeight="Bold"/>
+
+        <!-- USB connection -->
+        <Button x:Name="connect_usb_button" Content="Connect via USB" HorizontalAlignment="Left" Margin="20,123,0,0" VerticalAlignment="Top" Width="120" Height="23"/>
+        <ComboBox x:Name="serial_options_combobox" HorizontalAlignment="Left" Margin="20,151,0,0" VerticalAlignment="Top" Width="120"/>
+
+        <Label Width="133" HorizontalAlignment="Left" Margin="150,120,0,261">
+            <TextBlock x:Name="usb_status_label" TextWrapping="WrapWithOverflow" Text="Status" Width="123"/>
+        </Label>
+        <Button x:Name="connect_wifi_button_Copy" Content="Connect via WiFi" HorizontalAlignment="Left" Margin="20,194,0,0" VerticalAlignment="Top" Width="120" Height="23"/>
+        <TextBox x:Name="wifi_ip_textbox" HorizontalAlignment="Left" Margin="20,222,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="120"/>
+
+        <Label Width="133" HorizontalAlignment="Left" Margin="150,193,0,188">
+            <TextBlock x:Name="wifi_status_label" TextWrapping="WrapWithOverflow" Text="Status" Width="123"/>
+        </Label>
+        <Label x:Name="led_control_label" Content="LED Control" HorizontalAlignment="Left" Margin="24,24,0,0" VerticalAlignment="Top" Grid.Column="1" FontWeight="Bold" FontSize="14"/>
+        <Button x:Name="turnOnLedButton" Content="Turn ON" HorizontalAlignment="Left" Margin="128,27,0,0" VerticalAlignment="Top" Width="78" Height="23" Grid.Column="1"/>
+        <Button x:Name="turnOffLedButton" Content="Turn OFF" HorizontalAlignment="Left" Margin="220,27,0,0" VerticalAlignment="Top" Width="80" Height="23" Grid.Column="1"/>
+    </Grid>
+</Window>
