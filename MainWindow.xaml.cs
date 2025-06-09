@@ -25,6 +25,7 @@ namespace ArduinoGUI_Interface
 
             wifi_status_label.Text = "";
             serial_status_label.Text = "";
+            textBoxOutput.Text = "Output:\n";
         }
 
         private void RefreshComPorts()
