@@ -5,34 +5,33 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ArduinoGUI_Interface"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="MainWindow" Height="800" Width="1200">
+    <Grid Margin="0,0,0,-6">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300*"/>
             <ColumnDefinition Width="500*"/>
         </Grid.ColumnDefinitions>
-        <Label x:Name="Title" Content="Explorover Conrol Monitor Expert" HorizontalAlignment="Center" Margin="0,18,0,0" VerticalAlignment="Top" FontWeight="Bold" FontSize="16"/>
-        <Label Width="266" HorizontalAlignment="Center" Margin="0,46,0,347">
-            <TextBlock TextWrapping="WrapWithOverflow" Text="This program lets the user retrieve the data from the ExploRover." Width="256"/>
-        </Label>
+        <Label x:Name="Title" Content="Explorover Conrol Monitor Expert" HorizontalAlignment="Left" Margin="32,19,0,0" FontWeight="Bold" FontSize="16" Height="31" VerticalAlignment="Top"/>
 
-        <Label Content="Connection options:" HorizontalAlignment="Left" Margin="16,92,0,0" VerticalAlignment="Top" FontWeight="Bold"/>
+        <Label Content="Connection options:" Margin="35,96,291,0" VerticalAlignment="Top" FontWeight="Bold"/>
 
         <!-- USB connection -->
-        <Button x:Name="connect_usb_button" Content="Connect via USB" HorizontalAlignment="Left" Margin="20,123,0,0" VerticalAlignment="Top" Width="120" Height="23"/>
-        <ComboBox x:Name="serial_options_combobox" HorizontalAlignment="Left" Margin="20,151,0,0" VerticalAlignment="Top" Width="120"/>
+        <Button x:Name="connect_usb_button" Content="Connect via USB" Margin="39,127,291,0" VerticalAlignment="Top" Height="23" Click="connect_usb_button_Click"/>
+        <ComboBox x:Name="comboBoxSerialPorts" Margin="39,155,291,0" VerticalAlignment="Top"/>
 
-        <Label Width="133" HorizontalAlignment="Left" Margin="150,120,0,261">
-            <TextBlock x:Name="usb_status_label" TextWrapping="WrapWithOverflow" Text="Status" Width="123"/>
+        <Label Width="133" HorizontalAlignment="Right" Margin="0,124,148,0" Height="53" VerticalAlignment="Top">
+            <TextBlock x:Name="serial_status_label" TextWrapping="WrapWithOverflow" Text="Status" Width="123"/>
         </Label>
-        <Button x:Name="connect_wifi_button_Copy" Content="Connect via WiFi" HorizontalAlignment="Left" Margin="20,194,0,0" VerticalAlignment="Top" Width="120" Height="23"/>
-        <TextBox x:Name="wifi_ip_textbox" HorizontalAlignment="Left" Margin="20,222,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="120"/>
+        <Button x:Name="connect_wifi_button_Copy" Content="Connect via WiFi" Margin="39,198,291,0" VerticalAlignment="Top" Height="23" Click="connect_wifi_button_Copy_Click"/>
+        <TextBox x:Name="wifi_ip_textbox" Margin="39,226,291,0" TextWrapping="Wrap" VerticalAlignment="Top"/>
 
-        <Label Width="133" HorizontalAlignment="Left" Margin="150,193,0,188">
+        <Label Width="133" HorizontalAlignment="Right" Margin="0,197,148,0" Height="53" VerticalAlignment="Top">
             <TextBlock x:Name="wifi_status_label" TextWrapping="WrapWithOverflow" Text="Status" Width="123"/>
         </Label>
         <Label x:Name="led_control_label" Content="LED Control" HorizontalAlignment="Left" Margin="24,24,0,0" VerticalAlignment="Top" Grid.Column="1" FontWeight="Bold" FontSize="14"/>
-        <Button x:Name="turnOnLedButton" Content="Turn ON" HorizontalAlignment="Left" Margin="128,27,0,0" VerticalAlignment="Top" Width="78" Height="23" Grid.Column="1"/>
-        <Button x:Name="turnOffLedButton" Content="Turn OFF" HorizontalAlignment="Left" Margin="220,27,0,0" VerticalAlignment="Top" Width="80" Height="23" Grid.Column="1"/>
+        <Button x:Name="turnOnLedButton" Content="Turn ON" HorizontalAlignment="Left" Margin="128,27,0,0" VerticalAlignment="Top" Width="78" Height="23" Grid.Column="1" Click="turnOnLedButton_Click"/>
+        <Button x:Name="turnOffLedButton" Content="Turn OFF" HorizontalAlignment="Left" Margin="220,27,0,0" VerticalAlignment="Top" Width="80" Height="23" Grid.Column="1" Click="turnOffLedButton_Click"/>
+        <Label Content="This program lets the user retrieve the data &#xD;&#xA;from the ExploRover." Margin="32,45,160,0" VerticalAlignment="Top" FontWeight="Bold"/>
+        <TextBox x:Name="textBoxOutput" Grid.Column="1" Margin="30,68,274,0" TextWrapping="Wrap" Text="Output: " VerticalAlignment="Top" Height="81"/>
     </Grid>
 </Window>
