@@ -33,5 +33,6 @@
         <Button x:Name="turnOffLedButton" Content="Turn OFF" HorizontalAlignment="Left" Margin="220,27,0,0" VerticalAlignment="Top" Width="80" Height="23" Grid.Column="1" Click="turnOffLedButton_Click"/>
         <Label Content="This program lets the user retrieve the data &#xD;&#xA;from the ExploRover." Margin="32,45,160,0" VerticalAlignment="Top" FontWeight="Bold"/>
         <TextBox x:Name="textBoxOutput" Grid.Column="1" Margin="30,68,274,0" TextWrapping="Wrap" Text="Output: " VerticalAlignment="Top" Height="81"/>
+        <TextBox x:Name="textBoxSerialMonitor" Grid.Column="1" Margin="30,164,274,0" TextWrapping="Wrap" Text="Serial Monitor: " VerticalAlignment="Top" Height="80"/>
     </Grid>
 </Window>

@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace ArduinoGUI_Interface
 {
@@ -26,6 +27,8 @@ namespace ArduinoGUI_Interface
             wifi_status_label.Text = "";
             serial_status_label.Text = "";
             textBoxOutput.Text = "Output:\n";
+            wifi_ip_textbox.Text = "192.48.56.2";
+            textBoxSerialMonitor.Text = "Serial Monitor:\n";
         }
 
         private void RefreshComPorts()
@@ -40,7 +43,13 @@ namespace ArduinoGUI_Interface
 
             try
             {
-                serialPort = new SerialPort(portName, 9600);
+                serialPort = new SerialPort(portName, 9600)
+                {
+                    DtrEnable = true, // Required for Arduino Uno R4 to reset properly
+                    RtsEnable = true,
+                    NewLine = "\n",   // Matches Arduino's println
+                    Encoding = Encoding.ASCII
+                };
                 serialPort.DataReceived += SerialPort_DataReceived;
                 serialPort.Open();
                 serial_status_label.Text = "Serial Connected!";
@@ -53,11 +62,26 @@ namespace ArduinoGUI_Interface
 
         private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            string data = serialPort?.ReadLine() ?? string.Empty;
-            Dispatcher.Invoke(() =>
+            try
             {
-                // textBoxOutput.AppendText("Serial: " + data + "\n");
-            });
+                string data = serialPort?.ReadLine() ?? "";
+
+                Dispatcher.Invoke(() =>
+                {
+                    if (!string.IsNullOrWhiteSpace(data))
+                    {
+                        textBoxSerialMonitor.AppendText(data + "\n");
+                        textBoxSerialMonitor.ScrollToEnd();
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    textBoxSerialMonitor.AppendText($"[Read Error] {ex.Message}\n");
+                });
+            }
         }
 
         private void connect_wifi_button_Copy_Click(object sender, RoutedEventArgs e)
@@ -107,10 +131,12 @@ namespace ArduinoGUI_Interface
                 {
                     serialPort.WriteLine(command);
                     textBoxOutput.AppendText($"[Serial] Sent: {command}\n");
+                    textBoxOutput.ScrollToEnd();
                 }
                 catch (Exception ex)
                 {
                     textBoxOutput.AppendText($"[Serial Error] {ex.Message}\n");
+                    textBoxOutput.ScrollToEnd();
                 }
                 return;
             }
@@ -130,15 +156,18 @@ namespace ArduinoGUI_Interface
                     string response = Encoding.ASCII.GetString(buffer, 0, bytes);
 
                     textBoxOutput.AppendText($"[WiFi] Sent: {command} | Response: {response}\n");
+                    textBoxOutput.ScrollToEnd();
                 }
                 catch (Exception ex)
                 {
                     textBoxOutput.AppendText($"[WiFi Error] {ex.Message}\n");
+                    textBoxOutput.ScrollToEnd();
                 }
                 return;
             }
 
             textBoxOutput.AppendText("❌ No communication channel available (Serial or WiFi).\n");
+            textBoxOutput.ScrollToEnd();
         }
     }
 }
