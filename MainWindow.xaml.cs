@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 
 namespace ArduinoGUI_Interface
@@ -168,6 +169,21 @@ namespace ArduinoGUI_Interface
 
             textBoxOutput.AppendText("❌ No communication channel available (Serial or WiFi).\n");
             textBoxOutput.ScrollToEnd();
+        }
+
+        private void sendCustomCommandTextbox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                string command = sendCustomCommandTextbox.Text.Trim();
+
+                if (!string.IsNullOrEmpty(command))
+                {
+                    SendCommandToArduino(command);
+                    sendCustomCommandTextbox.Clear();
+                    e.Handled = true;
+                }
+            }
         }
     }
 }

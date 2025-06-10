@@ -34,5 +34,7 @@
         <Label Content="This program lets the user retrieve the data &#xD;&#xA;from the ExploRover." Margin="32,45,160,0" VerticalAlignment="Top" FontWeight="Bold"/>
         <TextBox x:Name="textBoxOutput" Grid.Column="1" Margin="30,68,274,0" TextWrapping="Wrap" Text="Output: " VerticalAlignment="Top" Height="81"/>
         <TextBox x:Name="textBoxSerialMonitor" Grid.Column="1" Margin="30,164,274,0" TextWrapping="Wrap" Text="Serial Monitor: " VerticalAlignment="Top" Height="80"/>
+        <TextBox x:Name="sendCustomCommandTextbox" Grid.Column="1" Margin="445,31,126,0" TextWrapping="Wrap" Text="start" VerticalAlignment="Top" Height="22" KeyDown="sendCustomCommandTextbox_KeyDown"/>
+        <Label x:Name="custom_command_label" Content="Custom command:" HorizontalAlignment="Left" Margin="330,27,0,0" VerticalAlignment="Top" Grid.Column="1"/>
     </Grid>
 </Window>
