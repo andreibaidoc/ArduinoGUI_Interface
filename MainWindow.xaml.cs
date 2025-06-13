@@ -52,7 +52,7 @@ namespace ArduinoGUI_Interface
                 };
                 serialPort.DataReceived += SerialPort_DataReceived;
                 serialPort.Open();
-                serial_status_label.Text = "Serial Connected!";
+                serial_status_label.Text = $"Serial Connected on {comboBoxSerialPorts.Text}";
             }
             catch (Exception ex)
             {
@@ -125,7 +125,7 @@ namespace ArduinoGUI_Interface
             SendCommandToArduino("led off");
         }
 
-        private void SendCommandToArduino(string command)
+        private async void SendCommandToArduino(string command)
         {
             // Prefer Serial if connected
             if (serialPort?.IsOpen == true)
@@ -149,16 +149,35 @@ namespace ArduinoGUI_Interface
             {
                 try
                 {
-                    using TcpClient client = new TcpClient(arduinoIP, arduinoPort);
-                    NetworkStream stream = client.GetStream();
+                    using TcpClient client = new TcpClient();
+                    await client.ConnectAsync(arduinoIP, arduinoPort);
+
+                    using NetworkStream stream = client.GetStream();
                     byte[] data = Encoding.ASCII.GetBytes(command + "\n");
-                    stream.Write(data, 0, data.Length);
+                    await stream.WriteAsync(data, 0, data.Length);
+                    await stream.FlushAsync();
 
-                    byte[] buffer = new byte[256];
-                    int bytes = stream.Read(buffer, 0, buffer.Length);
-                    string response = Encoding.ASCII.GetString(buffer, 0, bytes);
+                    // Wait up to 500ms for response
+                    var buffer = new byte[256];
+                    var timeout = DateTime.Now.AddMilliseconds(500);
+                    string response = "";
 
-                    textBoxOutput.AppendText($"[WiFi] Sent: {command} | Response: {response}\n");
+                    while (!stream.DataAvailable && DateTime.Now < timeout)
+                    {
+                        await Task.Delay(10);
+                    }
+
+                    if (stream.DataAvailable)
+                    {
+                        int bytes = await stream.ReadAsync(buffer, 0, buffer.Length);
+                        response = Encoding.ASCII.GetString(buffer, 0, bytes).Trim();
+                    }
+                    else
+                    {
+                        response = "[No response received]";
+                    }
+
+                    textBoxOutput.AppendText($"[WiFi] Sent: {command.Trim()} | Response: {response}\n");
                     textBoxOutput.ScrollToEnd();
                 }
                 catch (Exception ex)
@@ -173,11 +192,13 @@ namespace ArduinoGUI_Interface
             textBoxOutput.ScrollToEnd();
         }
 
+
         private void sendCustomCommandTextbox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
                 string command = sendCustomCommandTextbox.Text.Trim();
+                command = command + "\n"; // Ensure newline for Arduino compatibility
 
                 if (!string.IsNullOrEmpty(command))
                 {
@@ -186,6 +207,11 @@ namespace ArduinoGUI_Interface
                     e.Handled = true;
                 }
             }
+        }
+
+        private void refresh_com_ports_button_Click(object sender, RoutedEventArgs e)
+        {
+            RefreshComPorts();
         }
     }
 }

@@ -14,6 +14,7 @@ WiFiServer server(8888);
 #define DC_IN4 7
 #define STEPPER_DIR 11
 #define STEPPER_STEP 10
+#define STEPPER_EN 12
 
 void stepperStep(bool direction, int steps, int delayMicros = 800);
 
@@ -44,12 +45,14 @@ void setup() {
   pinMode(DC_EN, OUTPUT); 
   pinMode(DC_IN3, OUTPUT);
   pinMode(DC_IN4, OUTPUT);
-
+  
   // Stepper activation
   pinMode(STEPPER_DIR, OUTPUT);
   pinMode(STEPPER_STEP, OUTPUT);
+  pinMode(STEPPER_EN, OUTPUT);
   digitalWrite(STEPPER_DIR, LOW);
   digitalWrite(STEPPER_STEP, LOW);
+  digitalWrite(STEPPER_EN, HIGH);
   
   // Disable motors initially
   digitalWrite(DC_EN, LOW); 
@@ -111,18 +114,29 @@ void checkSerial() {
 
 void checkWiFi() {
   WiFiClient client = server.available();
-  if (client) {
-    String command = client.readStringUntil('\n');
-    command.trim();
-    command.toLowerCase();
+  if (!client) return;
 
-    Serial.print("WiFi received: ");
-    Serial.println(command);
+  unsigned long start = millis();
+  while (!client.available() && millis() - start < 1000);  // Wait max 1 sec
 
-    String response = handleCommand(command);
-    client.println(response);
+  if (!client.available()) {
     client.stop();
+    return;
   }
+
+  String command = client.readStringUntil('\n');
+  command.trim();
+  command.toLowerCase();
+
+  Serial.print("WiFi received: ");
+  Serial.println(command);
+
+  String response = handleCommand(command);
+
+  client.println(response);
+  client.flush();            // ✅ Ensure data is sent before closing
+  delay(20);                 // ✅ Give time to complete transmission
+  client.stop();             // ✅ Always close after sending response
 }
 
 String handleCommand(String cmd) {
@@ -134,41 +148,54 @@ String handleCommand(String cmd) {
     return "LED was turned off.";
   } else if (cmd == "ping") {
     return "PONG";
-  } else if (cmd == "motor forward") {
-    // insert code logic for moving forward with the motor
-    return "Motor forward command received";
-  }
-  else if (cmd == "motor backward") {
-    // insert code logic for moving backward with the motor
-    return "Motor forward command received";
-  }
-  else if (cmd == "turn left") {
+  } else if (cmd == "turn left") {
+    digitalWrite(STEPPER_EN, LOW);
     turnLeft();
+    digitalWrite(STEPPER_EN, HIGH);
     return "Stepper turned left.";
-  }
-  else if (cmd == "turn right") {
+  } else if (cmd == "turn right") {
+    digitalWrite(STEPPER_EN, LOW);
     turnRight();
+    digitalWrite(STEPPER_EN, HIGH);
     return "Stepper turned right.";
-  }
-  else if (cmd.startsWith("rotate ")) {
+  } else if (cmd.startsWith("rotate ")) {
+    digitalWrite(STEPPER_EN, LOW);
     int steps = cmd.substring(7).toInt();  // Extract number after "rotate "
     if (steps == 0) {
       return "Invalid step count.";
     }
     bool direction = (steps > 0);
     stepperStep(direction, abs(steps));  // Use absolute value for step count
+    digitalWrite(STEPPER_EN, HIGH);
     return "Rotated " + String(steps) + " steps.";
+  } else if (cmd == "motor forward" || cmd == "start") {
+    delay(200); // allow WiFi command to finish
+    // kick off a forward run
+    motorState      = MOTOR_FORWARD;
+    motorStartTime  = millis();     // ← reset your timer here
+    wasLastForward  = true;
+    isMotorRunning  = true;
+    return "Motors starting forward.";
   }
-  else if (cmd == "start") {
-    motorState = MOTOR_FORWARD;
-    isMotorRunning = true;
-    return "Start test movement for motors command received.";
+  else if (cmd == "motor backward") {
+    // kick off a backward run
+    motorState      = MOTOR_BACKWARD;
+    motorStartTime  = millis();     // ← reset your timer here
+    wasLastForward  = false;
+    isMotorRunning  = true;
+    return "Motors starting backward.";
+  }
+  else if (cmd == "run") {
+    moveForward();
+    isMotorRunning  = true;
+    stopMotors();
+    return "Motors running.";
   }
   else if (cmd == "stop") {
-    motorState = MOTOR_IDLE;
-    isMotorRunning = false;
+    motorState      = MOTOR_IDLE;
+    isMotorRunning  = false;
     stopMotors();
-    return "Stop command received.";
+    return "Motors stopped.";
   }
   else if (cmd == "stop step") {
     // implement stepper stop
@@ -198,6 +225,7 @@ void controlMotor() {
 
   switch (motorState) {
     case MOTOR_FORWARD:
+      isMotorRunning = true;
       moveForward();
       if (now - motorStartTime >= driveDuration) {
         stopMotors();
@@ -207,6 +235,7 @@ void controlMotor() {
       break;
 
     case MOTOR_BACKWARD:
+      isMotorRunning = true;
       moveBackward();
       if (now - motorStartTime >= driveDuration) {
         stopMotors();
@@ -225,26 +254,27 @@ void controlMotor() {
       break;
 
     case MOTOR_IDLE:
+      isMotorRunning = false;
       stopMotors();
       break;
   }
 }
 
 void moveForward() {
+  digitalWrite(DC_EN, HIGH);
   digitalWrite(DC_IN1, HIGH);
   digitalWrite(DC_IN2, LOW);
   digitalWrite(DC_IN3, LOW);
   digitalWrite(DC_IN4, HIGH);
-  digitalWrite(DC_EN, HIGH);
   wasLastForward = true;
 }
 
 void moveBackward() {
+  digitalWrite(DC_EN, HIGH);
   digitalWrite(DC_IN1, LOW);
   digitalWrite(DC_IN2, HIGH);
   digitalWrite(DC_IN3, HIGH);
   digitalWrite(DC_IN4, LOW);
-  digitalWrite(DC_EN, HIGH);
   wasLastForward = false;
 }
 
