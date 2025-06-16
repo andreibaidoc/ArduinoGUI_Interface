@@ -16,16 +16,16 @@
         <Label Content="Connection options:" Margin="35,96,291,0" VerticalAlignment="Top" FontWeight="Bold"/>
 
         <!-- USB connection -->
-        <Button x:Name="connect_usb_button" Content="Connect via USB" Margin="39,127,291,0" VerticalAlignment="Top" Height="23" Click="connect_usb_button_Click"/>
-        <ComboBox x:Name="comboBoxSerialPorts" Margin="39,155,291,0" VerticalAlignment="Top"/>
+        <Button x:Name="connect_usb_button" Content="Connect via USB" Margin="39,141,291,0" VerticalAlignment="Top" Height="23" Click="connect_usb_button_Click"/>
+        <ComboBox x:Name="comboBoxSerialPorts" Margin="39,169,291,0" VerticalAlignment="Top"/>
 
-        <Label Width="133" HorizontalAlignment="Right" Margin="0,124,148,0" Height="53" VerticalAlignment="Top">
+        <Label Width="133" HorizontalAlignment="Right" Margin="0,138,148,0" Height="53" VerticalAlignment="Top">
             <TextBlock x:Name="serial_status_label" TextWrapping="WrapWithOverflow" Text="Status" Width="123"/>
         </Label>
-        <Button x:Name="connect_wifi_button_Copy" Content="Connect via WiFi" Margin="39,198,291,0" VerticalAlignment="Top" Height="23" Click="connect_wifi_button_Copy_Click"/>
-        <TextBox x:Name="wifi_ip_textbox" Margin="39,226,291,0" TextWrapping="Wrap" VerticalAlignment="Top"/>
+        <Button x:Name="connect_wifi_button_Copy" Content="Connect via WiFi" Margin="39,239,291,0" VerticalAlignment="Top" Height="23" Click="connect_wifi_button_Copy_Click"/>
+        <TextBox x:Name="wifi_ip_textbox" Margin="39,266,291,0" TextWrapping="Wrap" VerticalAlignment="Top"/>
 
-        <Label Width="133" HorizontalAlignment="Right" Margin="0,197,148,0" Height="53" VerticalAlignment="Top">
+        <Label Width="133" HorizontalAlignment="Right" Margin="0,238,148,0" Height="52" VerticalAlignment="Top">
             <TextBlock x:Name="wifi_status_label" TextWrapping="WrapWithOverflow" Text="Status" Width="123"/>
         </Label>
         <Label x:Name="led_control_label" Content="LED Control" HorizontalAlignment="Left" Margin="24,24,0,0" VerticalAlignment="Top" Grid.Column="1" FontWeight="Bold" FontSize="14"/>
@@ -34,5 +34,8 @@
         <Label Content="This program lets the user retrieve the data &#xD;&#xA;from the ExploRover." Margin="32,45,160,0" VerticalAlignment="Top" FontWeight="Bold"/>
         <TextBox x:Name="textBoxOutput" Grid.Column="1" Margin="30,68,274,0" TextWrapping="Wrap" Text="Output: " VerticalAlignment="Top" Height="81"/>
         <TextBox x:Name="textBoxSerialMonitor" Grid.Column="1" Margin="30,164,274,0" TextWrapping="Wrap" Text="Serial Monitor: " VerticalAlignment="Top" Height="80"/>
+        <TextBox x:Name="sendCustomCommandTextbox" Grid.Column="1" Margin="445,31,126,0" TextWrapping="Wrap" Text="start" VerticalAlignment="Top" Height="22" KeyDown="sendCustomCommandTextbox_KeyDown"/>
+        <Label x:Name="custom_command_label" Content="Custom command:" HorizontalAlignment="Left" Margin="330,27,0,0" VerticalAlignment="Top" Grid.Column="1"/>
+        <Button x:Name="refresh_com_ports_button" Content="Refresh COM ports" Margin="39,200,291,0" VerticalAlignment="Top" Height="23" Click="refresh_com_ports_button_Click"/>
     </Grid>
 </Window>
