@@ -52,6 +52,7 @@ namespace ArduinoGUI_Interface
                 };
                 serialPort.DataReceived += SerialPort_DataReceived;
                 serialPort.Open();
+                textBoxOutput.AppendText($"[Debug] Opened COM port: {serialPort.PortName}\n");
                 serial_status_label.Text = $"Serial Connected on {comboBoxSerialPorts.Text}";
             }
             catch (Exception ex)
