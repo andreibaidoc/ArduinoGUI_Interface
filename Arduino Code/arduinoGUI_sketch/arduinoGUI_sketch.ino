@@ -12,9 +12,10 @@ WiFiServer server(8888);
 #define DC_EN  3 // enable EnA and EnB
 #define DC_IN3 6
 #define DC_IN4 7
-#define STEPPER_DIR 11
 #define STEPPER_STEP 10
+#define STEPPER_DIR 11
 #define STEPPER_EN 12
+#define Accelerometer 2
 
 void stepperStep(bool direction, int steps, int delayMicros = 800);
 
@@ -150,12 +151,12 @@ String handleCommand(String cmd) {
     return "PONG";
   } else if (cmd == "turn left") {
     digitalWrite(STEPPER_EN, LOW);
-    turnLeft();
+    stepperStep(false, 200); // Move 200 steps in "left" direction - turn left command
     digitalWrite(STEPPER_EN, HIGH);
     return "Stepper turned left.";
   } else if (cmd == "turn right") {
     digitalWrite(STEPPER_EN, LOW);
-    turnRight();
+    stepperStep(true, 200);  // Move 200 steps in "right" direction - turn right command
     digitalWrite(STEPPER_EN, HIGH);
     return "Stepper turned right.";
   } else if (cmd.startsWith("rotate ")) {
@@ -284,12 +285,4 @@ void stopMotors() {
   digitalWrite(DC_IN2, LOW);
   digitalWrite(DC_IN3, LOW);
   digitalWrite(DC_IN4, LOW);
-}
-
-void turnLeft() {
-  stepperStep(false, 200); // Move 200 steps in "left" direction
-}
-
-void turnRight() {
-  stepperStep(true, 200);  // Move 200 steps in "right" direction
 }
