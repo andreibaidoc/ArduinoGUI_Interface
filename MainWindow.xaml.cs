@@ -15,6 +15,9 @@ namespace ArduinoGUI_Interface
         private string? arduinoIP;
         private readonly int arduinoPort = 8888;
 
+        // Initializing the DataManager class instance
+        private DataManager dataManager = new();
+
         public MainWindow()
         {
             InitializeComponent();
@@ -29,6 +32,11 @@ namespace ArduinoGUI_Interface
             textBoxOutput.Text = "Output:\n";
             wifi_ip_textbox.Text = "192.168.4.1";
             textBoxSerialMonitor.Text = "Serial Monitor:\n";
+            textBoxDataPreview.Visibility = Visibility.Collapsed;
+            textBoxDataPreview.Text = "Data Preview:\n";
+            getDataButton.Visibility = Visibility.Collapsed;
+            previewDataButton.Visibility = Visibility.Collapsed;
+            saveDataToCSVButton.Visibility = Visibility.Collapsed;
         }
 
         private void RefreshComPorts()
@@ -126,6 +134,7 @@ namespace ArduinoGUI_Interface
             SendCommandToArduino("led off");
         }
 
+
         private async void SendCommandToArduino(string command)
         {
             // Prefer Serial if connected
@@ -178,7 +187,22 @@ namespace ArduinoGUI_Interface
                         response = "[No response received]";
                     }
 
-                    textBoxOutput.AppendText($"[WiFi] Sent: {command.Trim()} | Response: {response}\n");
+                    if (command.Trim().ToLower() == "get data")
+                    {
+                        dataManager.ParseCsv(response);
+                        textBoxOutput.AppendText($"[WiFi] Received sensor data: {dataManager.Count} samples\n");
+                        textBoxDataPreview.Text = "Data Preview:\n" + string.Join("\n", dataManager.Samples
+                            .Take(5)
+                            .Select(s => $"{s.Timestamp} | {s.Temperature}°C | {s.Humidity}% | {s.AccelX},{s.AccelY},{s.AccelZ}"));
+
+                        textBoxDataPreview.Visibility = Visibility.Visible;
+                        previewDataButton.Visibility = Visibility.Visible;
+                        saveDataToCSVButton.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        textBoxOutput.AppendText($"[WiFi] Sent: {command.Trim()} | Response: {response}\n");
+                    }
                     textBoxOutput.ScrollToEnd();
                 }
                 catch (Exception ex)
@@ -213,6 +237,26 @@ namespace ArduinoGUI_Interface
         private void refresh_com_ports_button_Click(object sender, RoutedEventArgs e)
         {
             RefreshComPorts();
+        }
+
+        private void startDataRecordingButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("collect data");
+        }
+
+        private void getDataButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("get data");
+        }
+
+        private void stopDataRecordingButton_Copy_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("stop data");
+        }
+
+        private void saveDataToCSVButton_Click(object sender, RoutedEventArgs e)
+        {
+            dataManager.ExportToCsvWithDialog();
         }
     }
 }

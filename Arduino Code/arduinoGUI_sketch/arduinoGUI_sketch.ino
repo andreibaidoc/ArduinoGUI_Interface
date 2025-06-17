@@ -1,5 +1,10 @@
 #include <WiFiS3.h>
 
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include <MPU6050.h>
+
 // WiFi and connectivity settings
 const char* ssid = "ExploRover";
 const char* password = "explorover";
@@ -15,8 +20,27 @@ WiFiServer server(8888);
 #define STEPPER_STEP 10
 #define STEPPER_DIR 11
 #define STEPPER_EN 12
-#define Accelerometer 2
+#define BME280_ADDRESS 0x76
 
+// sensors for data acquisition
+Adafruit_BME280 bme; // temp humidity pressure sensor
+MPU6050 mpu; // accelerometer
+
+struct SensorSample {
+  unsigned long timestamp;
+  float temperature, humidity, pressure;
+  float accelX, accelY, accelZ;
+};
+
+const int MAX_SAMPLES = 100;
+SensorSample logBuffer[MAX_SAMPLES];
+int currentIndex = 0;
+
+bool dataLoggingActive = false;
+unsigned long lastSampleTime = 0;
+const unsigned long sampleInterval = 5000; // 5 seconds - 0.2 Hz sample rate
+
+// stepper function declaration
 void stepperStep(bool direction, int steps, int delayMicros = 800);
 
 // variables for motor control
@@ -27,6 +51,7 @@ enum MotorState {
   MOTOR_PAUSE
 };
 
+// DC motor variables
 MotorState motorState = MOTOR_IDLE;
 unsigned long motorStartTime = 0;
 bool wasLastForward = true;
@@ -36,11 +61,20 @@ bool isMotorRunning = false;
 const unsigned long driveDuration = 5000;
 const unsigned long pauseDuration = 1000;
 
+// ---------------------------------------------------------------------------
+
 void setup() {
-  // Setup LED and motor pins
+  pins_setup();
+  connection_setup();
+  sensors_setup();
+}
+
+void pins_setup() {
+  // Setup LED pins
   pinMode(ARDUINO_LED, OUTPUT);
   digitalWrite(ARDUINO_LED, LOW);
 
+  // Setup DC motor pins
   pinMode(DC_IN1, OUTPUT);
   pinMode(DC_IN2, OUTPUT);
   pinMode(DC_EN, OUTPUT); 
@@ -57,8 +91,6 @@ void setup() {
   
   // Disable motors initially
   digitalWrite(DC_EN, LOW); 
-
-  connection_setup();
 }
 
 void connection_setup() { 
@@ -80,11 +112,52 @@ void connection_setup() {
   Serial.println(WiFi.localIP());
 }
 
+void sensors_setup() {
+  Wire.begin();
+  blink_led(3, ARDUINO_LED);
+  if (!bme.begin(BME280_ADDRESS)) {
+    Serial.println("❌ BME280 not found");
+  }
+
+  mpu.initialize();
+  blink_led(4, ARDUINO_LED);
+  if (!mpu.testConnection()) {
+    Serial.println("❌ MPU6050 connection failed");
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 void loop() {
+  get_data(); // runs only if dataLoggingActive is true
+
   checkSerial();
   checkWiFi();
 
   controlMotor();
+}
+
+// ---------------------------------------------------------------------------
+
+void get_data() {
+  if (dataLoggingActive && millis() - lastSampleTime >= sampleInterval) {
+    lastSampleTime = millis();
+
+    SensorSample s;
+    s.timestamp = millis();
+    s.temperature = bme.readTemperature();
+    s.humidity = bme.readHumidity();
+    s.pressure = bme.readPressure() / 100.0F;
+
+    int16_t ax, ay, az;
+    mpu.getAcceleration(&ax, &ay, &az);
+    s.accelX = ax / 16384.0;
+    s.accelY = ay / 16384.0;
+    s.accelZ = az / 16384.0;
+
+    logBuffer[currentIndex] = s;
+    currentIndex = (currentIndex + 1) % MAX_SAMPLES;
+  } 
 }
 
 void blink_led(int counter, int ledPin) {
@@ -206,6 +279,41 @@ String handleCommand(String cmd) {
     Serial.print("WiFi ready. Access Point IP: ");
     Serial.println(WiFi.localIP());
     return "Checked wifi.";
+  }
+  else if (cmd == "collect data") {
+    currentIndex = 0;
+    dataLoggingActive = true;
+    return "✅ Data collection started.";
+  }
+  else if (cmd == "stop data") {
+    dataLoggingActive = false;
+    return "🛑 Data collection stopped.";
+  }
+  else if (cmd == "get data") {
+    String output = "time,temp,hum,press,ax,ay,az\n";
+
+    for (int i = 0; i < MAX_SAMPLES; i++) {
+      SensorSample& s = logBuffer[i];
+      if (s.timestamp == 0) continue; // skip empty entries
+
+      output += String(s.timestamp) + ",";
+      output += String(s.temperature, 1) + ",";
+      output += String(s.humidity, 1) + ",";
+      output += String(s.pressure, 1) + ",";
+      output += String(s.accelX, 2) + ",";
+      output += String(s.accelY, 2) + ",";
+      output += String(s.accelZ, 2) + "\n";
+
+      // Optional: break early if output is getting too large (safety for Wi-Fi)
+    }
+
+    // Clear the buffer after sending
+    for (int i = 0; i < MAX_SAMPLES; i++) {
+      logBuffer[i].timestamp = 0;
+    }
+    currentIndex = 0;
+
+    return output;
   }
 
   return "UNKNOWN COMMAND";

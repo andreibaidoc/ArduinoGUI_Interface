@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:ArduinoGUI_Interface"
         mc:Ignorable="d"
         Title="Explorover Conrol Monitor Expert" Height="800" Width="1200">
-    <Grid Margin="0,0,0,-6">
+    <Grid Margin="0,0,0,-6" RenderTransformOrigin="0.496,0.5">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300*"/>
             <ColumnDefinition Width="500*"/>
@@ -37,5 +37,12 @@
         <TextBox x:Name="sendCustomCommandTextbox" Grid.Column="1" Margin="445,31,126,0" TextWrapping="Wrap" Text="start" VerticalAlignment="Top" Height="22" KeyDown="sendCustomCommandTextbox_KeyDown"/>
         <Label x:Name="custom_command_label" Content="Custom command:" HorizontalAlignment="Left" Margin="330,27,0,0" VerticalAlignment="Top" Grid.Column="1"/>
         <Button x:Name="refresh_com_ports_button" Content="Refresh COM ports" Margin="39,200,291,0" VerticalAlignment="Top" Height="23" Click="refresh_com_ports_button_Click"/>
+        <Button x:Name="getDataButton" Content="Fetch data..." HorizontalAlignment="Left" Margin="31,353,0,0" VerticalAlignment="Top" Width="117" Height="23" Grid.Column="1" Click="getDataButton_Click"/>
+        <Label x:Name="data_acquisition_label" Content="Data Acquisition" HorizontalAlignment="Left" Margin="31,278,0,0" VerticalAlignment="Top" Grid.Column="1" FontWeight="Bold" FontSize="14"/>
+        <Button x:Name="previewDataButton" Content="Preview" HorizontalAlignment="Left" Margin="165,353,0,0" VerticalAlignment="Top" Width="117" Height="23" Grid.Column="1" Click="turnOnLedButton_Click"/>
+        <Button x:Name="saveDataToCSVButton" Content="Save data to CSV format" HorizontalAlignment="Center" Margin="0,353,0,0" VerticalAlignment="Top" Width="156" Height="23" Grid.Column="1" Click="saveDataToCSVButton_Click"/>
+        <TextBox x:Name="textBoxDataPreview" Grid.Column="1" Margin="31,395,144,0" TextWrapping="Wrap" Text="Data output:" VerticalAlignment="Top" Height="139"/>
+        <Button x:Name="startDataRecordingButton" Content="Start data collection" HorizontalAlignment="Left" Margin="31,313,0,0" VerticalAlignment="Top" Width="136" Height="23" Grid.Column="1" Click="startDataRecordingButton_Click"/>
+        <Button x:Name="stopDataRecordingButton_Copy" Content="Stop data collection" HorizontalAlignment="Left" Margin="180,313,0,0" VerticalAlignment="Top" Width="136" Height="23" Grid.Column="1" Click="stopDataRecordingButton_Copy_Click"/>
     </Grid>
 </Window>
