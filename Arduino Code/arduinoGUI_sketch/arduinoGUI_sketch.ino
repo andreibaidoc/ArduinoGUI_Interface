@@ -2,7 +2,7 @@
 
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
+#include <Adafruit_BMP3XX.h>
 #include <MPU6050.h>
 
 // WiFi and connectivity settings
@@ -20,15 +20,15 @@ WiFiServer server(8888);
 #define STEPPER_STEP 10
 #define STEPPER_DIR 11
 #define STEPPER_EN 12
-#define BME280_ADDRESS 0x76
+#define BMP388_ADDRESS 0x77
 
 // sensors for data acquisition
-Adafruit_BME280 bme; // temp humidity pressure sensor
-MPU6050 mpu; // accelerometer
+Adafruit_BMP3XX bmp; // temp pressure sensor
+MPU6050 mpu(0x68); // accelerometer
 
 struct SensorSample {
   unsigned long timestamp;
-  float temperature, humidity, pressure;
+  float temperature, pressure;
   float accelX, accelY, accelZ;
 };
 
@@ -38,7 +38,7 @@ int currentIndex = 0;
 
 bool dataLoggingActive = false;
 unsigned long lastSampleTime = 0;
-const unsigned long sampleInterval = 5000; // 5 seconds - 0.2 Hz sample rate
+const unsigned long sampleInterval = 1000; // sample rate - set here
 
 // stepper function declaration
 void stepperStep(bool direction, int steps, int delayMicros = 800);
@@ -66,6 +66,8 @@ const unsigned long pauseDuration = 1000;
 void setup() {
   pins_setup();
   connection_setup();
+
+  delay(1000);
   sensors_setup();
 }
 
@@ -112,19 +114,56 @@ void connection_setup() {
   Serial.println(WiFi.localIP());
 }
 
-void sensors_setup() {
+void check_i2c_addresses() {
   Wire.begin();
-  blink_led(3, ARDUINO_LED);
-  if (!bme.begin(BME280_ADDRESS)) {
-    Serial.println("❌ BME280 not found");
+  Serial.begin(9600);
+  delay(1000);
+  Serial.println("🔍 Scanning I2C bus...");
+
+  byte count = 0;
+  for (byte address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("✅ Found I2C device at 0x");
+      Serial.println(address, HEX);
+      count++;
+      delay(1);
+    }
   }
 
-  mpu.initialize();
-  blink_led(4, ARDUINO_LED);
-  if (!mpu.testConnection()) {
-    Serial.println("❌ MPU6050 connection failed");
+  if (count == 0) {
+    Serial.println("❌ No I2C devices found. Check wiring.");
+  } else {
+    Serial.println("✅ Done scanning.");
   }
 }
+
+void sensors_setup() {
+  Wire.begin();
+  delay(500);
+
+  Serial.println("Trying BMP388 at 0x77...");
+  if (!bmp.begin_I2C(BMP388_ADDRESS)) { 
+    Serial.println("❌ BMP388 not found");
+  } else {
+    Serial.println("✅ BMP388 initialized.");
+    bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
+    bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
+    bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
+    bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+  }
+
+  Serial.println("Initializing MPU6050 at 0x68...");
+  mpu.initialize();
+  if (!mpu.testConnection()) {
+    Serial.println("❌ MPU6050 connection failed");
+  } else {
+    Serial.println("✅ MPU6050 connected.");
+  }
+
+  blink_led(3, ARDUINO_LED);
+}
+
 
 // ---------------------------------------------------------------------------
 
@@ -145,9 +184,13 @@ void get_data() {
 
     SensorSample s;
     s.timestamp = millis();
-    s.temperature = bme.readTemperature();
-    s.humidity = bme.readHumidity();
-    s.pressure = bme.readPressure() / 100.0F;
+    if (bmp.performReading()) {
+      s.temperature = bmp.temperature;
+      s.pressure = bmp.pressure / 100.0F;
+    } else {
+      Serial.println("⚠️ BMP388 read failed");
+      s.temperature = s.pressure = 0;
+    }
 
     int16_t ax, ay, az;
     mpu.getAcceleration(&ax, &ay, &az);
@@ -161,14 +204,15 @@ void get_data() {
 }
 
 void blink_led(int counter, int ledPin) {
+  int led_delay = 500;
   // exception
   if(counter < 1 || counter > 20) return;
 
   for(int i = 1; i <= counter; i++) {
     digitalWrite(ledPin, HIGH);
-    delay(1000);
+    delay(led_delay);
     digitalWrite(ledPin, LOW);
-    delay(1000);
+    delay(led_delay);
   }
 }
 
@@ -275,6 +319,11 @@ String handleCommand(String cmd) {
     // implement stepper stop
     return "Stop stepper command received.";
   }
+  else if (cmd == "i2c") {
+    // implement stepper stop
+    check_i2c_addresses();
+    return "Checked i2c addresses";
+  }
   else if (cmd == "wifi") {
     Serial.print("WiFi ready. Access Point IP: ");
     Serial.println(WiFi.localIP());
@@ -283,14 +332,14 @@ String handleCommand(String cmd) {
   else if (cmd == "collect data") {
     currentIndex = 0;
     dataLoggingActive = true;
-    return "✅ Data collection started.";
+    return "Data collection started.";
   }
   else if (cmd == "stop data") {
     dataLoggingActive = false;
-    return "🛑 Data collection stopped.";
+    return "Data collection stopped.";
   }
   else if (cmd == "get data") {
-    String output = "time,temp,hum,press,ax,ay,az\n";
+    String output = "time,temp,press,ax,ay,az\n";
 
     for (int i = 0; i < MAX_SAMPLES; i++) {
       SensorSample& s = logBuffer[i];
@@ -298,7 +347,6 @@ String handleCommand(String cmd) {
 
       output += String(s.timestamp) + ",";
       output += String(s.temperature, 1) + ",";
-      output += String(s.humidity, 1) + ",";
       output += String(s.pressure, 1) + ",";
       output += String(s.accelX, 2) + ",";
       output += String(s.accelY, 2) + ",";
