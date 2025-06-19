@@ -8,12 +8,20 @@
 #define STEPPER2_DIR 5
 #define STEPPER_EN 12
 
-#define DIR_RAISE_STEPPER1 HIGH
-#define DIR_RAISE_STEPPER2 LOW
+// Motor states
+#define MOTOR_IDLE 0
+#define MOTOR_RUNNING 1
 
-// stepper function declarations
-void stepperStep(int dirPin, int stepPin, bool direction, int steps, int delayMicros = 800);
-void dualStepperStep(bool dirStepper1, int steps, int delayMicros = 800);
+// Global state variables
+int motorState = MOTOR_IDLE;
+bool isMotorRunning = false;
+
+// Movement control variables
+bool dirStepper1 = false;
+int stepsLeft = 0;
+unsigned int stepDelayMicros = 800;
+unsigned long lastStepTime = 0;
+bool stepPinHigh = false;
 
 void setup() {
     pins_setup();
@@ -24,14 +32,15 @@ void pins_setup() {
     pinMode(ARDUINO_LED, OUTPUT);
     digitalWrite(ARDUINO_LED, LOW);
 
-    int dirPins[] = { STEPPER1_DIR, STEPPER2_DIR };
-    int stepPins[] = { STEPPER1_STEP, STEPPER2_STEP };
-    for (int i = 0; i < 2; i++) {
-        pinMode(dirPins[i], OUTPUT);
-        pinMode(stepPins[i], OUTPUT);
-        digitalWrite(dirPins[i], LOW);
-        digitalWrite(stepPins[i], LOW);
-    }
+    pinMode(STEPPER1_DIR, OUTPUT);
+    pinMode(STEPPER1_STEP, OUTPUT);
+    digitalWrite(STEPPER1_DIR, LOW);
+    digitalWrite(STEPPER1_STEP, LOW);
+
+    pinMode(STEPPER2_DIR, OUTPUT);
+    pinMode(STEPPER2_STEP, OUTPUT);
+    digitalWrite(STEPPER2_DIR, LOW);
+    digitalWrite(STEPPER2_STEP, LOW);
 
     pinMode(STEPPER_EN, OUTPUT);
     digitalWrite(STEPPER_EN, HIGH); // disable motors initially
@@ -79,84 +88,96 @@ String handleCommand(String cmd) {
     else if (cmd == "ping") {
         return "PONG";
     }
+    else if (cmd == "stop") {
+        isMotorRunning = false;
+        motorState = MOTOR_IDLE;
+        digitalWrite(STEPPER_EN, HIGH);  // disable motors immediately
+        digitalWrite(STEPPER1_STEP, LOW);
+        digitalWrite(STEPPER2_STEP, LOW);
+        Serial.println("Motors stopped.");
+        return "Motors stopped.";
+    }
 
-    // Stepper commands ----------------------
+    if (motorState == MOTOR_RUNNING) {
+        return "Motor busy, stop first.";
+    }
 
-    else if (cmd == "turn left") {
-        digitalWrite(STEPPER_EN, LOW);
-        dualStepperStep(false, 200);
-        digitalWrite(STEPPER_EN, HIGH);
+    // Start motor movement commands here (non-blocking)
+    if (cmd == "2turn left") {
+        startMovement(false, 200, 800);
         return "Turned left.";
     }
-    else if (cmd == "turn right") {
-        digitalWrite(STEPPER_EN, LOW);
-        dualStepperStep(true, 200);
-        digitalWrite(STEPPER_EN, HIGH);
+    else if (cmd == "2turn right") {
+        startMovement(true, 200, 800);
         return "Turned right.";
     }
-    else if (cmd.startsWith("rotate ")) {
-        int steps = cmd.substring(7).toInt();
-        if (steps == 0) return "Invalid step count.";
-        bool direction = (steps > 0);
-        digitalWrite(STEPPER_EN, LOW);
-        dualStepperStep(direction, abs(steps));
-        digitalWrite(STEPPER_EN, HIGH);
-        return "Rotated " + String(steps) + " steps.";
+    else if (cmd.startsWith("2rotate ")) {
+        int s = cmd.substring(7).toInt();
+        if (s == 0) return "Invalid step count.";
+        bool d = (s > 0);
+        startMovement(d, abs(s), 800);
+        return "Rotated " + String(s) + " steps.";
     }
     else if (cmd == "raise") {
-        digitalWrite(STEPPER_EN, LOW);
-
-        // Explicit, fixed directions
-        digitalWrite(STEPPER1_DIR, HIGH);  // Always same
-        digitalWrite(STEPPER2_DIR, LOW);   // Always opposite
-        delayMicroseconds(50);
-
-        for (int i = 0; i < 200; i++) {
-            digitalWrite(STEPPER1_STEP, HIGH);
-            digitalWrite(STEPPER2_STEP, HIGH);
-            delayMicroseconds(800);
-
-            digitalWrite(STEPPER1_STEP, LOW);
-            digitalWrite(STEPPER2_STEP, LOW);
-            delayMicroseconds(800);
-        }
-
-        digitalWrite(STEPPER_EN, HIGH);
+        // Set fixed directions for raise
+        digitalWrite(STEPPER1_DIR, HIGH);
+        digitalWrite(STEPPER2_DIR, LOW);
+        startMovement(true, 200, 800);
         return "Explorover raised.";
-    }
-    else if (cmd == "stop step") {
-        return "Stop stepper command received.";
     }
 
     return "UNKNOWN COMMAND";
 }
 
-void stepperStep(int dirPin, int stepPin, bool direction, int steps, int delayMicros) {
-    digitalWrite(dirPin, direction ? HIGH : LOW);
-    for (int i = 0; i < steps; i++) {
-        digitalWrite(stepPin, HIGH);
-        delayMicroseconds(delayMicros);
-        digitalWrite(stepPin, LOW);
-        delayMicroseconds(delayMicros);
-    }
-}
+void startMovement(bool direction, int steps, int delayMicros) {
+    motorState = MOTOR_RUNNING;
+    isMotorRunning = true;
+    dirStepper1 = direction;
+    stepsLeft = steps;
+    stepDelayMicros = delayMicros;
+    lastStepTime = 0;
+    stepPinHigh = false;
 
-void dualStepperStep(bool dirStepper1, int steps, int delayMicros) {
-    // Rotate stepper 1 in dirStepper1 and stepper 2 in the opposite direction
+    digitalWrite(STEPPER_EN, LOW);  // Enable motor drivers
     digitalWrite(STEPPER1_DIR, dirStepper1 ? HIGH : LOW);
     digitalWrite(STEPPER2_DIR, dirStepper1 ? LOW : HIGH);
+}
 
-    for (int i = 0; i < steps; i++) {
-        digitalWrite(STEPPER1_STEP, HIGH);
-        digitalWrite(STEPPER2_STEP, HIGH);
-        delayMicroseconds(delayMicros);
+void performStep() {
+    if (!isMotorRunning || motorState == MOTOR_IDLE) {
+        return; // nothing to do
+    }
 
+    unsigned long now = micros();
+
+    if (stepsLeft <= 0) {
+        // Movement done
+        isMotorRunning = false;
+        motorState = MOTOR_IDLE;
+        digitalWrite(STEPPER_EN, HIGH); // disable motors
         digitalWrite(STEPPER1_STEP, LOW);
         digitalWrite(STEPPER2_STEP, LOW);
-        delayMicroseconds(delayMicros);
+        return;
+    }
+
+    if (!stepPinHigh && (now - lastStepTime >= stepDelayMicros)) {
+        // Step pins go HIGH
+        digitalWrite(STEPPER1_STEP, HIGH);
+        digitalWrite(STEPPER2_STEP, HIGH);
+        lastStepTime = now;
+        stepPinHigh = true;
+    }
+    else if (stepPinHigh && (now - lastStepTime >= stepDelayMicros)) {
+        // Step pins go LOW
+        digitalWrite(STEPPER1_STEP, LOW);
+        digitalWrite(STEPPER2_STEP, LOW);
+        lastStepTime = now;
+        stepsLeft--;
+        stepPinHigh = false;
     }
 }
 
 void loop() {
     checkSerial();
+    performStep();
 }
