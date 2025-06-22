@@ -260,5 +260,20 @@ namespace ArduinoGUI_Interface
                 .Take(10)
                 .Select(s => $"{s.Timestamp} | {s.Temperature:F1}°C | {s.AccelX:F2},{s.AccelY:F2},{s.AccelZ:F2}"));
         }
+
+        private void controlStartButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("start");
+        }
+
+        private void controlStopButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("stop");
+        }
+
+        private void emergencyStopButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("emergency stop");
+        }
     }
 }
