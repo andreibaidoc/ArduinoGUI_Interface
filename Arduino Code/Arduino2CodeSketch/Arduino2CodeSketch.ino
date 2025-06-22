@@ -1,3 +1,5 @@
+// Note: Use this only if a second Arduino would be added to the system!!!
+
 // definitions
 #define ARDUINO_LED 13
 
