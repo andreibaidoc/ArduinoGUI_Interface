@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ArduinoGUI_Interface"
         mc:Ignorable="d"
+        Icon="pack://application:,,,/Resources/explorover_monitor_icon.ico"
         Title="Explorover Conrol Monitor Expert" Height="800" Width="1200">
     <Grid Margin="0,0,0,-6" RenderTransformOrigin="0.496,0.5">
         <Grid.ColumnDefinitions>
