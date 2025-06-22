@@ -9,7 +9,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="explorover_monitor_icon.ico" />
+    <None Remove="Resources\explorover_monitor_icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.IO.Ports" Version="9.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\explorover_monitor_icon.ico" />
   </ItemGroup>
 
 </Project>
