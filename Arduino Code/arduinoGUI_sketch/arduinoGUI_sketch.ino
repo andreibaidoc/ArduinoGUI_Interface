@@ -2,7 +2,7 @@
 
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
+#include <Adafruit_BMP3XX.h>
 #include <MPU6050.h>
 
 // WiFi and connectivity settings
@@ -12,23 +12,37 @@ WiFiServer server(8888);
 
 // definitions
 #define ARDUINO_LED 13
-#define DC_IN1 4
-#define DC_IN2 5
-#define DC_EN  3 // enable EnA and EnB
-#define DC_IN3 6
-#define DC_IN4 7
+#define DC_IN1 8
+#define DC_IN2 9
+#define DC_EN  0 // enable EnA and EnB
+#define DC_IN3 2
+#define DC_IN4 1
 #define STEPPER_STEP 10
 #define STEPPER_DIR 11
 #define STEPPER_EN 12
-#define BME280_ADDRESS 0x76
+#define BMP388_ADDRESS 0x77
+
+// stepper definitions for arms
+#define STEPPER1_STEP 4
+#define STEPPER1_DIR 3
+#define STEPPER2_STEP 6
+#define STEPPER2_DIR 5
+#define STEPPER_EN_ARMS 7
+
+// Stepper Motor states
+#define STEPPER_MOTOR_IDLE 0
+#define STEPPER_MOTOR_RUNNING 1
+
+// connection to Arduino 2
+// HardwareSerial& stepperSerial = Serial1; // Or use SoftwareSerial if Serial1 isn't available
 
 // sensors for data acquisition
-Adafruit_BME280 bme; // temp humidity pressure sensor
-MPU6050 mpu; // accelerometer
+Adafruit_BMP3XX bmp; // temp pressure sensor
+MPU6050 mpu(0x68); // accelerometer
 
 struct SensorSample {
   unsigned long timestamp;
-  float temperature, humidity, pressure;
+  float temperature, pressure;
   float accelX, accelY, accelZ;
 };
 
@@ -38,12 +52,9 @@ int currentIndex = 0;
 
 bool dataLoggingActive = false;
 unsigned long lastSampleTime = 0;
-const unsigned long sampleInterval = 5000; // 5 seconds - 0.2 Hz sample rate
+const unsigned long sampleInterval = 1000; // sample rate - set here
 
-// stepper function declaration
-void stepperStep(bool direction, int steps, int delayMicros = 800);
-
-// variables for motor control
+// variables for DC motor control
 enum MotorState {
   MOTOR_IDLE,
   MOTOR_FORWARD,
@@ -58,14 +69,29 @@ bool wasLastForward = true;
 bool isMotorRunning = false;
 
 // motor durations
-const unsigned long driveDuration = 5000;
+const unsigned long driveDuration = 2000; 
 const unsigned long pauseDuration = 1000;
+
+// stepper function declaration
+void stepperStep(bool direction, int steps, int delayMicros = 800);
+
+// Global state variables for arms steppers
+int stepperMotorState = STEPPER_MOTOR_IDLE;
+bool isStepperMotorRunning = false;
+
+// Movement control variables for arms steppers
+bool dirStepper1 = false;
+int stepsLeft = 0;
+unsigned int stepDelayMicros = 800;
+unsigned long lastStepTime = 0;
+bool stepPinHigh = false;
 
 // ---------------------------------------------------------------------------
 
 void setup() {
   pins_setup();
   connection_setup();
+  delay(1000);
   sensors_setup();
 }
 
@@ -81,21 +107,37 @@ void pins_setup() {
   pinMode(DC_IN3, OUTPUT);
   pinMode(DC_IN4, OUTPUT);
   
-  // Stepper activation
+  // Stepper activation for turning
   pinMode(STEPPER_DIR, OUTPUT);
   pinMode(STEPPER_STEP, OUTPUT);
   pinMode(STEPPER_EN, OUTPUT);
   digitalWrite(STEPPER_DIR, LOW);
   digitalWrite(STEPPER_STEP, LOW);
   digitalWrite(STEPPER_EN, HIGH);
+
+  // Stepper activation for arms
+  pinMode(STEPPER1_DIR, OUTPUT);
+  pinMode(STEPPER1_STEP, OUTPUT);
+  digitalWrite(STEPPER1_DIR, LOW);
+  digitalWrite(STEPPER1_STEP, LOW);
+
+  pinMode(STEPPER2_DIR, OUTPUT);
+  pinMode(STEPPER2_STEP, OUTPUT);
+  digitalWrite(STEPPER2_DIR, LOW);
+  digitalWrite(STEPPER2_STEP, LOW);
+
+  pinMode(STEPPER_EN_ARMS, OUTPUT);
+  digitalWrite(STEPPER_EN_ARMS, HIGH); // disable motors initially
   
-  // Disable motors initially
+  // Disable DC motors initially
   digitalWrite(DC_EN, LOW); 
 }
 
 void connection_setup() { 
   // Start Serial
-  Serial.begin(9600);
+  Serial.begin(9600); // Main serial
+  // stepperSerial.begin(9600); // Link to Arduino 2
+
   delay(2000); // Allow Serial time to initialize
   blink_led(1, ARDUINO_LED);
 
@@ -112,19 +154,56 @@ void connection_setup() {
   Serial.println(WiFi.localIP());
 }
 
-void sensors_setup() {
+void check_i2c_addresses() {
   Wire.begin();
-  blink_led(3, ARDUINO_LED);
-  if (!bme.begin(BME280_ADDRESS)) {
-    Serial.println("❌ BME280 not found");
+  Serial.begin(9600);
+  delay(1000);
+  Serial.println("🔍 Scanning I2C bus...");
+
+  byte count = 0;
+  for (byte address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("Found I2C device at 0x");
+      Serial.println(address, HEX);
+      count++;
+      delay(1);
+    }
   }
 
-  mpu.initialize();
-  blink_led(4, ARDUINO_LED);
-  if (!mpu.testConnection()) {
-    Serial.println("❌ MPU6050 connection failed");
+  if (count == 0) {
+    Serial.println("No I2C devices found. Check wiring.");
+  } else {
+    Serial.println("Done scanning.");
   }
 }
+
+void sensors_setup() {
+  Wire.begin();
+  delay(500);
+
+  Serial.println("Trying BMP388 at 0x77...");
+  if (!bmp.begin_I2C(BMP388_ADDRESS)) { 
+    Serial.println("❌ BMP388 not found");
+  } else {
+    Serial.println("✅ BMP388 initialized.");
+    bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
+    bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
+    bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
+    bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+  }
+
+  Serial.println("Initializing MPU6050 at 0x68...");
+  mpu.initialize();
+  if (!mpu.testConnection()) {
+    Serial.println("❌ MPU6050 connection failed");
+  } else {
+    Serial.println("✅ MPU6050 connected.");
+  }
+
+  blink_led(3, ARDUINO_LED);
+}
+
 
 // ---------------------------------------------------------------------------
 
@@ -135,9 +214,61 @@ void loop() {
   checkWiFi();
 
   controlMotor();
+  performStep();
 }
 
 // ---------------------------------------------------------------------------
+
+void performStep() {
+  if (!isStepperMotorRunning || stepperMotorState == STEPPER_MOTOR_IDLE) {
+    return; // nothing to do
+  }
+
+  unsigned long now = micros();
+
+  if (stepsLeft <= 0) {
+    // Movement done
+    isStepperMotorRunning = false;
+    stepperMotorState = STEPPER_MOTOR_IDLE;
+    digitalWrite(STEPPER_EN_ARMS, HIGH); // disable motors
+    digitalWrite(STEPPER1_STEP, LOW);
+    digitalWrite(STEPPER2_STEP, LOW);
+    return;
+  }
+
+  if (!stepPinHigh && (now - lastStepTime >= stepDelayMicros)) {
+    // Step pins go HIGH
+    digitalWrite(STEPPER1_STEP, HIGH);
+    digitalWrite(STEPPER2_STEP, HIGH);
+    lastStepTime = now;
+    stepPinHigh = true;
+  } else if (stepPinHigh && (now - lastStepTime >= stepDelayMicros)) {
+    // Step pins go LOW
+    digitalWrite(STEPPER1_STEP, LOW);
+    digitalWrite(STEPPER2_STEP, LOW);
+    lastStepTime = now;
+    stepsLeft--;
+    stepPinHigh = false;
+  }
+}
+
+void startMovement(bool direction, int steps, int delayMicros) {
+  stepperMotorState = STEPPER_MOTOR_RUNNING;
+  isStepperMotorRunning = true;
+  dirStepper1 = direction;
+  stepsLeft = steps;
+  stepDelayMicros = delayMicros;
+  lastStepTime = 0;
+  stepPinHigh = false;
+
+  digitalWrite(STEPPER_EN_ARMS, LOW);  // Enable motor drivers
+  digitalWrite(STEPPER1_DIR, dirStepper1 ? HIGH : LOW);
+  digitalWrite(STEPPER2_DIR, dirStepper1 ? LOW : HIGH);
+}
+
+// void sendToStepper(const String& command) {
+  // stepperSerial.println(command); // Send command to Arduino 2
+// }
 
 void get_data() {
   if (dataLoggingActive && millis() - lastSampleTime >= sampleInterval) {
@@ -145,9 +276,13 @@ void get_data() {
 
     SensorSample s;
     s.timestamp = millis();
-    s.temperature = bme.readTemperature();
-    s.humidity = bme.readHumidity();
-    s.pressure = bme.readPressure() / 100.0F;
+    if (bmp.performReading()) {
+      s.temperature = bmp.temperature;
+      s.pressure = bmp.pressure / 100.0F;
+    } else {
+      Serial.println("⚠️ BMP388 read failed");
+      s.temperature = s.pressure = 0;
+    }
 
     int16_t ax, ay, az;
     mpu.getAcceleration(&ax, &ay, &az);
@@ -161,14 +296,15 @@ void get_data() {
 }
 
 void blink_led(int counter, int ledPin) {
+  int led_delay = 500;
   // exception
   if(counter < 1 || counter > 20) return;
 
   for(int i = 1; i <= counter; i++) {
     digitalWrite(ledPin, HIGH);
-    delay(1000);
+    delay(led_delay);
     digitalWrite(ledPin, LOW);
-    delay(1000);
+    delay(led_delay);
   }
 }
 
@@ -208,9 +344,9 @@ void checkWiFi() {
   String response = handleCommand(command);
 
   client.println(response);
-  client.flush();            // ✅ Ensure data is sent before closing
-  delay(20);                 // ✅ Give time to complete transmission
-  client.stop();             // ✅ Always close after sending response
+  client.flush();            // Ensure data is sent before closing
+  delay(20);                 // Give time to complete transmission
+  client.stop();             // Always close after sending response
 }
 
 String handleCommand(String cmd) {
@@ -271,9 +407,80 @@ String handleCommand(String cmd) {
     stopMotors();
     return "Motors stopped.";
   }
+  else if (cmd == "emergency stop") {
+    // stop DC motors
+    motorState      = MOTOR_IDLE;
+    isMotorRunning  = false;
+    stopMotors();
+
+    //stop arms steppers 
+    isStepperMotorRunning = false;
+    stepperMotorState = MOTOR_IDLE;
+    digitalWrite(STEPPER_EN_ARMS, HIGH);  // disable motors immediately
+    digitalWrite(STEPPER1_STEP, LOW);
+    digitalWrite(STEPPER2_STEP, LOW);
+    Serial.println("Arm Stepper Motors stopped.");
+
+    // stop turning stepper
+    digitalWrite(STEPPER_EN, HIGH);
+    digitalWrite(STEPPER_STEP, LOW);
+
+    return "Emergency stop activated!";
+  }
+  // ---------------
+
   else if (cmd == "stop step") {
+    isStepperMotorRunning = false;
+    stepperMotorState = MOTOR_IDLE;
+    digitalWrite(STEPPER_EN_ARMS, HIGH);  // disable motors immediately
+    digitalWrite(STEPPER1_STEP, LOW);
+    digitalWrite(STEPPER2_STEP, LOW);
+    Serial.println("Arm Stepper Motors stopped.");
+    return "Arm Stepper Motors stopped.";
+  }
+  else if (cmd == "2turn left") {
+    startMovement(false, 200, 800);
+    return "Turned left.";
+  } 
+  else if (cmd == "2turn right") {
+    startMovement(true, 200, 800);
+    return "Turned right.";
+  } 
+  else if (cmd.startsWith("2rotate ")) {
+    int s = cmd.substring(7).toInt();
+    if (s == 0) return "Invalid step count.";
+    bool d = (s > 0);
+    startMovement(d, abs(s), 800);
+    return "Rotated " + String(s) + " steps.";
+  } 
+  else if (cmd == "raise") {
+    // Set fixed directions for raise
+    digitalWrite(STEPPER1_DIR, HIGH);
+    digitalWrite(STEPPER2_DIR, LOW);
+    startMovement(true, 200, 800);
+    return "Explorover raised.";
+  }
+  else if (cmd == "lower") {
+    // Set fixed directions for lowering
+    digitalWrite(STEPPER1_DIR, LOW);
+    digitalWrite(STEPPER2_DIR, HIGH);
+    startMovement(true, 200, 800);
+    return "Explorover raised.";
+  }
+  else if (cmd == "hold") {
+    // enables arms stepper motors for holding the 
+    stepperMotorState = STEPPER_MOTOR_RUNNING;
+    digitalWrite(STEPPER_EN_ARMS, LOW); 
+    return "ExploRover holding height.";
+  }
+
+
+  // ---------------
+
+  else if (cmd == "i2c") {
     // implement stepper stop
-    return "Stop stepper command received.";
+    check_i2c_addresses();
+    return "Checked i2c addresses";
   }
   else if (cmd == "wifi") {
     Serial.print("WiFi ready. Access Point IP: ");
@@ -283,14 +490,14 @@ String handleCommand(String cmd) {
   else if (cmd == "collect data") {
     currentIndex = 0;
     dataLoggingActive = true;
-    return "✅ Data collection started.";
+    return "Data collection started.";
   }
   else if (cmd == "stop data") {
     dataLoggingActive = false;
-    return "🛑 Data collection stopped.";
+    return "Data collection stopped.";
   }
   else if (cmd == "get data") {
-    String output = "time,temp,hum,press,ax,ay,az\n";
+    String output = "time,temp,press,ax,ay,az\n";
 
     for (int i = 0; i < MAX_SAMPLES; i++) {
       SensorSample& s = logBuffer[i];
@@ -298,7 +505,6 @@ String handleCommand(String cmd) {
 
       output += String(s.timestamp) + ",";
       output += String(s.temperature, 1) + ",";
-      output += String(s.humidity, 1) + ",";
       output += String(s.pressure, 1) + ",";
       output += String(s.accelX, 2) + ",";
       output += String(s.accelY, 2) + ",";

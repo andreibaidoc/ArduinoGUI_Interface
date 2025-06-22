@@ -32,11 +32,7 @@ namespace ArduinoGUI_Interface
             textBoxOutput.Text = "Output:\n";
             wifi_ip_textbox.Text = "192.168.4.1";
             textBoxSerialMonitor.Text = "Serial Monitor:\n";
-            textBoxDataPreview.Visibility = Visibility.Collapsed;
             textBoxDataPreview.Text = "Data Preview:\n";
-            getDataButton.Visibility = Visibility.Collapsed;
-            previewDataButton.Visibility = Visibility.Collapsed;
-            saveDataToCSVButton.Visibility = Visibility.Collapsed;
         }
 
         private void RefreshComPorts()
@@ -191,13 +187,6 @@ namespace ArduinoGUI_Interface
                     {
                         dataManager.ParseCsv(response);
                         textBoxOutput.AppendText($"[WiFi] Received sensor data: {dataManager.Count} samples\n");
-                        textBoxDataPreview.Text = "Data Preview:\n" + string.Join("\n", dataManager.Samples
-                            .Take(5)
-                            .Select(s => $"{s.Timestamp} | {s.Temperature}°C | {s.Humidity}% | {s.AccelX},{s.AccelY},{s.AccelZ}"));
-
-                        textBoxDataPreview.Visibility = Visibility.Visible;
-                        previewDataButton.Visibility = Visibility.Visible;
-                        saveDataToCSVButton.Visibility = Visibility.Visible;
                     }
                     else
                     {
@@ -257,6 +246,34 @@ namespace ArduinoGUI_Interface
         private void saveDataToCSVButton_Click(object sender, RoutedEventArgs e)
         {
             dataManager.ExportToCsvWithDialog();
+        }
+
+        private void previewDataButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (dataManager.Count == 0)
+            {
+                MessageBox.Show("No data available to preview. Please run 'Get Data' first.", "No Data", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            textBoxDataPreview.Text = "Data Preview:\n" + string.Join("\n", dataManager.Samples
+                .Take(10)
+                .Select(s => $"{s.Timestamp} | {s.Temperature:F1}°C | {s.AccelX:F2},{s.AccelY:F2},{s.AccelZ:F2}"));
+        }
+
+        private void controlStartButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("start");
+        }
+
+        private void controlStopButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("stop");
+        }
+
+        private void emergencyStopButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommandToArduino("emergency stop");
         }
     }
 }
