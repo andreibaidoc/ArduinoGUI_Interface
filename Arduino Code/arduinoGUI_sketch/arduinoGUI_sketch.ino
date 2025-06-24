@@ -576,7 +576,7 @@ void controlMotor() {
       break;
     
     case MOTOR_OPEN_LOOP:
-      int openLoopDuration = 5000;
+      int openLoopDuration = 15000;
       isMotorRunning = true;
       moveForward();
       if (now - motorStartTime >= openLoopDuration ) {
