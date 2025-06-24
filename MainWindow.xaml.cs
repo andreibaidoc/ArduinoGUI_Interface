@@ -69,14 +69,23 @@ namespace ArduinoGUI_Interface
         {
             try
             {
-                string data = serialPort?.ReadLine() ?? "";
+                string data = serialPort?.ReadExisting() ?? "";
 
                 Dispatcher.Invoke(() =>
                 {
                     if (!string.IsNullOrWhiteSpace(data))
                     {
-                        textBoxSerialMonitor.AppendText(data + "\n");
-                        textBoxSerialMonitor.ScrollToEnd();
+                        // Check if this looks like CSV sensor data
+                        if (data.StartsWith("time,temp,press") || data.Contains(","))
+                        {
+                            dataManager.ParseCsv(data);
+                            textBoxOutput.AppendText($"[Serial] Received sensor data: {dataManager.Count} samples\n");
+                        }
+                        else
+                        {
+                            textBoxSerialMonitor.AppendText(data + "\n");
+                            textBoxSerialMonitor.ScrollToEnd();
+                        }
                     }
                 });
             }
@@ -88,6 +97,7 @@ namespace ArduinoGUI_Interface
                 });
             }
         }
+
 
         private async void connect_wifi_button_Copy_Click(object sender, RoutedEventArgs e)
         {
