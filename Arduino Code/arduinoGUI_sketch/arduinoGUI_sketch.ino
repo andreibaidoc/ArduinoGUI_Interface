@@ -59,7 +59,8 @@ enum MotorState {
   MOTOR_IDLE,
   MOTOR_FORWARD,
   MOTOR_BACKWARD,
-  MOTOR_PAUSE
+  MOTOR_PAUSE,
+  MOTOR_OPEN_LOOP
 };
 
 // DC motor variables
@@ -378,14 +379,12 @@ String handleCommand(String cmd) {
     stepperStep(direction, abs(steps));  // Use absolute value for step count
     digitalWrite(STEPPER_EN, HIGH);
     return "Rotated " + String(steps) + " steps.";
-  } else if (cmd == "motor forward" || cmd == "start") {
+  } else if (cmd == "start") {
     delay(200); // allow WiFi command to finish
     // kick off a forward run
-    motorState      = MOTOR_FORWARD;
-    motorStartTime  = millis();     // ← reset your timer here
-    wasLastForward  = true;
-    isMotorRunning  = true;
-    return "Motors starting forward.";
+    motorState      = MOTOR_OPEN_LOOP;
+    motorStartTime  = millis(); 
+    return "Open Loop Command Started";
   }
   else if (cmd == "motor backward") {
     // kick off a backward run
@@ -395,11 +394,14 @@ String handleCommand(String cmd) {
     isMotorRunning  = true;
     return "Motors starting backward.";
   }
-  else if (cmd == "run") {
-    moveForward();
+  else if (cmd == "run" || cmd == "motor forward") {
+    delay(200); // allow WiFi command to finish
+    // kick off a forward run
+    motorState      = MOTOR_FORWARD;
+    motorStartTime  = millis(); 
+    wasLastForward  = true;
     isMotorRunning  = true;
-    stopMotors();
-    return "Motors running.";
+    return "Motors starting forward.";
   }
   else if (cmd == "stop") {
     motorState      = MOTOR_IDLE;
@@ -572,24 +574,35 @@ void controlMotor() {
       isMotorRunning = false;
       stopMotors();
       break;
+    
+    case MOTOR_OPEN_LOOP:
+      int openLoopDuration = 5000;
+      isMotorRunning = true;
+      moveForward();
+      if (now - motorStartTime >= openLoopDuration ) {
+        stopMotors();
+        motorStartTime = now;
+        motorState = MOTOR_IDLE;
+      }
+      break;
   }
 }
 
 void moveForward() {
   digitalWrite(DC_EN, HIGH);
-  digitalWrite(DC_IN1, HIGH);
-  digitalWrite(DC_IN2, LOW);
-  digitalWrite(DC_IN3, LOW);
-  digitalWrite(DC_IN4, HIGH);
+  digitalWrite(DC_IN1, LOW);
+  digitalWrite(DC_IN2, HIGH);
+  digitalWrite(DC_IN3, HIGH);
+  digitalWrite(DC_IN4, LOW);
   wasLastForward = true;
 }
 
 void moveBackward() {
   digitalWrite(DC_EN, HIGH);
-  digitalWrite(DC_IN1, LOW);
-  digitalWrite(DC_IN2, HIGH);
-  digitalWrite(DC_IN3, HIGH);
-  digitalWrite(DC_IN4, LOW);
+  digitalWrite(DC_IN1, HIGH);
+  digitalWrite(DC_IN2, LOW);
+  digitalWrite(DC_IN3, LOW);
+  digitalWrite(DC_IN4, HIGH);
   wasLastForward = false;
 }
 
